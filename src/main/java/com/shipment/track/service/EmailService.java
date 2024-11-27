@@ -1,17 +1,9 @@
 package com.shipment.track.service;
 
 import javax.mail.*;
-import javax.mail.internet.MimeBodyPart;
-import javax.mail.internet.MimeMultipart;
 
-import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.sql.Date;
-import java.text.SimpleDateFormat;
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
@@ -24,11 +16,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import com.shipment.track.model.Constants;
 import com.shipment.track.model.ShipmentDetails;
 import com.shipment.track.repository.ShipmentDetailsRepository;
 
-import io.micrometer.common.util.StringUtils;
 
 @Service
 public class EmailService {
@@ -118,11 +108,11 @@ public class EmailService {
 
 			// insert the data
 			ShipmentDetails details = new ShipmentDetails();
-			details.setSenderAddress(keyValueMap.get("From"));
-			details.setReceiverAddress(keyValueMap.get("To"));
-			// details.setTrackingNumber(keyValueMap.get("Shipment Number"));
-			details.setOrderId(keyValueMap.get("Order Number"));
-			details.setStatus(keyValueMap.get("Status"));
+			details.setSenderAddress(keyValueMap.get("from"));
+			details.setReceiverAddress(keyValueMap.get("to"));
+			details.setTrackingNumber(keyValueMap.get("shipmentNumber"));
+			details.setOrderId(keyValueMap.get("orderNumber"));
+			details.setStatus(keyValueMap.get("status"));
 			String dueDate = keyValueMap.get("Due Date");
 			System.out.println("Due date=> " + dueDate);
 			
@@ -148,6 +138,26 @@ public class EmailService {
 		try (PDDocument document = PDDocument.load(is)) {
 			PDFTextStripper pdfStripper = new PDFTextStripper();
 			String text = pdfStripper.getText(document);
+			
+			/*
+			 * String from = extractValueForKey(text,"Sold By"); String to =
+			 * extractValueForKey(text,"Shipping Address"); String orderNumber =
+			 * extractValueForKey(text,"Order Number"); String status =
+			 * extractValueForKey(text,"Status"); String shipmentNumber =
+			 * extractValueForKey(text,"Invoice Number");
+			 */
+			
+			String soldByRegex = "(?i)Sold By\\s*:?\\s*([\\s\\S]*?)(?=\\s*(?:Shipping Address|Total Due|GST Registration No|PAN No|Order Number|$))";  
+            String shippingAddressRegex = "(?i)Shipping Address\\s*:?\\s*([\\s\\S]*?)(?=\\s*(?:Billing Address|Total Due|State|Order Number|$))";
+            String orderNumberRegex = "(?i)Order Number\\s*:?\\s*([A-Za-z0-9-]+)";
+            String statusRegex = "Status:?\\s*:?\\s*([A-Za-z0-9_]+)";
+            
+            // Extracting data  for amazon receipt
+            keyValuePairs.put("from", extractPattern(text, soldByRegex));  
+            keyValuePairs.put("to", extractPattern(text, shippingAddressRegex));
+            keyValuePairs.put("orderNumber", extractPattern(text, orderNumberRegex));
+            keyValuePairs.put("status", extractPattern(text, statusRegex));
+			
 
 			// Extract data using regex
 			/*
@@ -161,13 +171,6 @@ public class EmailService {
 			 * Constants.DUE_DATE_REGEX));
 			 */
 			
-			//new amazon receipt reading
-			 keyValuePairs.put("From", extractPattern(text,"\"(?<=Sold By\\\\s)\\\\s*:?\\\\s*([\\\\s\\\\S]*?)(?=To\\\\s)\""));
-			 keyValuePairs.put("To", extractPattern(text,"\"(?<=Shipping Address\\\\s)\\\\s*:?\\\\s*([\\\\s\\\\S]*?)(?=State\\\\s)\""));
-			 keyValuePairs.put("Order Number", extractPattern(text,"Order Number\\s*:?\\s*(\\d+)"));
-			 keyValuePairs.put("Shipment Number", extractPattern(text,"Invoice Number\\s*:?\\s*([A-Za-z0-9_]+)"));
-			 keyValuePairs.put("Due Date", extractPattern(text,"Order Date\\s*:?\\s*([A-Za-z0-9_]+)"));
-			 
 			
 			System.out.println("HashMap Elements: " + keyValuePairs);
 
@@ -179,6 +182,24 @@ public class EmailService {
 		return keyValuePairs;
 	}
 
+	// Method to extract value associated with the key in the PDF text
+    public String extractValueForKey(String text,String key) throws IOException {
+
+        // Use regular expression to search for the key and extract the value
+        // For example, key could be "Invoice No" and the value could be the number following it
+    	String pattern = "(?s)" + key + "\\s*[:]?\\s*(.*?)\\s*(?=\n|$)";
+    	
+    //	String pattern = "(?i)Sold By\\s*:?\\s*([\\s\\S]*?)(?=\\s*(?:Shipping Address|From|To|Status|Total Due|Order Number|$))";
+        Pattern r = Pattern.compile(pattern);
+        Matcher m = r.matcher(text);
+
+        if (m.find()) {
+            return m.group(1);  // Return the first group, which is the value after the key
+        } else {
+            return null;
+        }
+    }
+	
 	private String extractPattern(String text, String regex) {
 		Pattern pattern = Pattern.compile(regex);
 		Matcher matcher = pattern.matcher(text);
