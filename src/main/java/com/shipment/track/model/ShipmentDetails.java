@@ -1,6 +1,7 @@
 package com.shipment.track.model;
 
 
+
 import java.sql.Date;
 
 import jakarta.persistence.Entity;
@@ -22,7 +23,7 @@ import lombok.Setter;
 public class ShipmentDetails {
 
 	@Id
-	@GeneratedValue(strategy = GenerationType.AUTO)
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long shipmentId;
 	private String orderId;
 	private String status;
@@ -31,6 +32,6 @@ public class ShipmentDetails {
 	private String receiverName;
 	private String receiverAddress;
 	private String trackingNumber;
-	private Date shipmentDate;
+	private  Date shipmentDate;
 	
 }
