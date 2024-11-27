@@ -113,6 +113,7 @@ public class EmailService {
 			details.setTrackingNumber(keyValueMap.get("shipmentNumber"));
 			details.setOrderId(keyValueMap.get("orderNumber"));
 			details.setStatus(keyValueMap.get("status"));
+			details.setShipmentDate(keyValueMap.get("Due Date"));
 			String dueDate = keyValueMap.get("Due Date");
 			System.out.println("Due date=> " + dueDate);
 			
@@ -151,12 +152,14 @@ public class EmailService {
             String shippingAddressRegex = "(?i)Shipping Address\\s*:?\\s*([\\s\\S]*?)(?=\\s*(?:Billing Address|Total Due|State|Order Number|$))";
             String orderNumberRegex = "(?i)Order Number\\s*:?\\s*([A-Za-z0-9-]+)";
             String statusRegex = "Status:?\\s*:?\\s*([A-Za-z0-9_]+)";
+            String dueDateRegex = "(?i)Due Date\\s*:?\\s*(\\d{2}-\\d{2}-\\d{4})";  
             
             // Extracting data  for amazon receipt
             keyValuePairs.put("from", extractPattern(text, soldByRegex));  
             keyValuePairs.put("to", extractPattern(text, shippingAddressRegex));
             keyValuePairs.put("orderNumber", extractPattern(text, orderNumberRegex));
             keyValuePairs.put("status", extractPattern(text, statusRegex));
+            keyValuePairs.put("Due Date", extractPattern(text, dueDateRegex));
 			
 
 			// Extract data using regex

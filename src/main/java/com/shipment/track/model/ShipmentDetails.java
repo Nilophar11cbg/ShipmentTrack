@@ -32,6 +32,6 @@ public class ShipmentDetails {
 	private String receiverName;
 	private String receiverAddress;
 	private String trackingNumber;
-	private  Date shipmentDate;
+	private String shipmentDate;
 	
 }
