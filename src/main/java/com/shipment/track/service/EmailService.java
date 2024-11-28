@@ -4,6 +4,7 @@ import javax.mail.*;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.text.SimpleDateFormat;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
@@ -18,7 +19,6 @@ import org.springframework.stereotype.Service;
 
 import com.shipment.track.model.ShipmentDetails;
 import com.shipment.track.repository.ShipmentDetailsRepository;
-
 
 @Service
 public class EmailService {
@@ -59,6 +59,7 @@ public class EmailService {
 			Message[] messages = inbox.getMessages();
 			System.out.println("Messages available in Inbox " + messages.length);
 
+
 			for (Message message : messages) {
 				if (message.isMimeType("multipart/*")) {
 					Multipart multipart = (Multipart) message.getContent();
@@ -84,15 +85,16 @@ public class EmailService {
 		try {
 			String filename = bodyPart.getFileName();
 			InputStream is = bodyPart.getInputStream();
+			if (filename.endsWith(".pdf")) {
+				extractTextFromPDF(is);
+			}
+
 			// Process the attachment based on its type (PDF, DOCX, Image)
 			if (filename.endsWith(".pdf")) {
 				extractTextFromPDF(is);
 			}
-			/*
-			 * else if (filename.endsWith(".jpg") || filename.endsWith(".png")) {
-			 * extractTextFromImage(is); } else if (filename.endsWith(".docx")) {
-			 * extractTextFromWord(is); }
-			 */
+			
+
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
@@ -106,7 +108,6 @@ public class EmailService {
 			System.out.println("Extraction started for PDF....");
 			Map<String, String> keyValueMap = extractKeyValuePairs(is);
 
-			// insert the data
 			ShipmentDetails details = new ShipmentDetails();
 			details.setSenderAddress(keyValueMap.get("from"));
 			details.setReceiverAddress(keyValueMap.get("to"));
@@ -115,18 +116,16 @@ public class EmailService {
 			details.setStatus(keyValueMap.get("status"));
 			String dueDate = keyValueMap.get("Due Date");
 			System.out.println("Due date=> " + dueDate);
+      
+			if (dueDate != null && !dueDate.isEmpty()) {
+				SimpleDateFormat sdf = new SimpleDateFormat("dd-MM-yyyy");
+				java.util.Date parsedDate = sdf.parse(dueDate);
+
+				java.sql.Date sqlDueDate = new java.sql.Date(parsedDate.getTime());
+				details.setShipmentDate(sqlDueDate);
+			}
 			
-			/*
-			 * if(StringUtils.isNotEmpty(dueDate)) { //DateTimeFormatter formatter =
-			 * DateTimeFormatter.ofPattern("dd-MM-YYYY");
-			 * 
-			 * SimpleDateFormat sdf1 = new SimpleDateFormat("dd-MM-YYYY"); java.util.Date
-			 * date = sdf1.parse(dueDate); java.sql.Date sqlStartDate = new
-			 * java.sql.Date(date.getTime());
-			 * 
-			 * details.setShipmentDate(sqlStartDate); }
-			 */
-			repository.save(details);
+				repository.save(details);
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
@@ -138,47 +137,38 @@ public class EmailService {
 		try (PDDocument document = PDDocument.load(is)) {
 			PDFTextStripper pdfStripper = new PDFTextStripper();
 			String text = pdfStripper.getText(document);
-			
-			/*
-			 * String from = extractValueForKey(text,"Sold By"); String to =
-			 * extractValueForKey(text,"Shipping Address"); String orderNumber =
-			 * extractValueForKey(text,"Order Number"); String status =
-			 * extractValueForKey(text,"Status"); String shipmentNumber =
-			 * extractValueForKey(text,"Invoice Number");
-			 */
-			
-			String soldByRegex = "(?i)Sold By\\s*:?\\s*([\\s\\S]*?)(?=\\s*(?:Shipping Address|Total Due|GST Registration No|PAN No|Order Number|$))";  
-            String shippingAddressRegex = "(?i)Shipping Address\\s*:?\\s*([\\s\\S]*?)(?=\\s*(?:Billing Address|Total Due|State|Order Number|$))";
-            String orderNumberRegex = "(?i)Order Number\\s*:?\\s*([A-Za-z0-9-]+)";
-            String statusRegex = "Status:?\\s*:?\\s*([A-Za-z0-9_]+)";
-            
-            // Extracting data  for amazon receipt
-            keyValuePairs.put("from", extractPattern(text, soldByRegex));  
-            keyValuePairs.put("to", extractPattern(text, shippingAddressRegex));
-            keyValuePairs.put("orderNumber", extractPattern(text, orderNumberRegex));
-            keyValuePairs.put("status", extractPattern(text, statusRegex));
-			
 
-			// Extract data using regex
-			/*
-			 * keyValuePairs.put("From", extractPattern(text, Constants.FROM_REGEX));
-			 * keyValuePairs.put("To", extractPattern(text, Constants.TO_REGEX));
-			 * keyValuePairs.put("Shipment Number", extractPattern(text,
-			 * Constants.SHIPMENT_NUMBER_REGEX)); keyValuePairs.put("Order Number",
-			 * extractPattern(text, Constants.ORDER_NUMBER_REGEX));
-			 * keyValuePairs.put("Status", extractPattern(text, Constants.STATUS_REGEX));
-			 * keyValuePairs.put("Due Date", extractPattern(text,
-			 * Constants.DUE_DATE_REGEX));
-			 */
-			
-			
-			System.out.println("HashMap Elements: " + keyValuePairs);
+			String soldByRegex = "(?i)Sold By\\s*:?\\s*([\\s\\S]*?)(?=\\s*(?:Shipping Address|Total Due|GST Registration No|PAN No|Order Number|$))";
+			String shippingAddressRegex = "(?i)Shipping Address\\s*:?\\s*([\\s\\S]*?)(?=\\s*(?:Billing Address|Total Due|State|Order Number|$))";
+			String orderNumberRegex = "(?i)Order Number\\s*:?\\s*([A-Za-z0-9-]+)";
+			String statusRegex = "Status:?\\s*:?\\s*([A-Za-z0-9_]+)";
+			String dueDateRegex = "(?i)Due Date\\s*:?\\s*(\\d{2}-\\d{2}-\\d{4})";
+
+			keyValuePairs.put("from", extractPattern(text, soldByRegex));
+			keyValuePairs.put("to", extractPattern(text, shippingAddressRegex));
+			keyValuePairs.put("orderNumber", extractPattern(text, orderNumberRegex));
+			keyValuePairs.put("status", extractPattern(text, statusRegex));
+			keyValuePairs.put("Due Date", extractPattern(text, dueDateRegex));
+
 
 		} catch (IOException e) {
 			e.printStackTrace();
 			throw new RuntimeException("Failed to process PDF file", e);
 		}
+		return keyValuePairs;
+	}
 
+	public String extractValueForKey(String text, String key) throws IOException {
+		String pattern = "(?s)" + key + "\\s*[:]?\\s*(.*?)\\s*(?=\n|$)";
+		Pattern r = Pattern.compile(pattern);
+		Matcher m = r.matcher(text);
+
+		if (m.find()) {
+			return m.group(1);
+		} else {
+			return null;
+		}
+	}
 		return keyValuePairs;
 	}
 
@@ -205,7 +195,7 @@ public class EmailService {
 		Matcher matcher = pattern.matcher(text);
 
 		if (matcher.find()) {
-			return matcher.group(1).trim().replaceAll("\\r\\n|\\n", " "); // Clean up newlines
+			return matcher.group(1).trim().replaceAll("\\r\\n|\\n", " ");
 		}
 		return null;
 	}
