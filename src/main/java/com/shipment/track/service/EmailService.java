@@ -55,7 +55,10 @@ public class EmailService {
 			store.connect(username, password);
 			Folder inbox = store.getFolder("INBOX");
 			inbox.open(Folder.READ_ONLY);
+
 			Message[] messages = inbox.getMessages();
+			System.out.println("Messages available in Inbox " + messages.length);
+
 
 			for (Message message : messages) {
 				if (message.isMimeType("multipart/*")) {
@@ -82,10 +85,15 @@ public class EmailService {
 		try {
 			String filename = bodyPart.getFileName();
 			InputStream is = bodyPart.getInputStream();
-
 			if (filename.endsWith(".pdf")) {
 				extractTextFromPDF(is);
 			}
+
+			// Process the attachment based on its type (PDF, DOCX, Image)
+			if (filename.endsWith(".pdf")) {
+				extractTextFromPDF(is);
+			}
+			
 
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -108,7 +116,7 @@ public class EmailService {
 			details.setStatus(keyValueMap.get("status"));
 			String dueDate = keyValueMap.get("Due Date");
 			System.out.println("Due date=> " + dueDate);
-
+      
 			if (dueDate != null && !dueDate.isEmpty()) {
 				SimpleDateFormat sdf = new SimpleDateFormat("dd-MM-yyyy");
 				java.util.Date parsedDate = sdf.parse(dueDate);
@@ -116,7 +124,8 @@ public class EmailService {
 				java.sql.Date sqlDueDate = new java.sql.Date(parsedDate.getTime());
 				details.setShipmentDate(sqlDueDate);
 			}
-			repository.save(details);
+			
+				repository.save(details);
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
@@ -140,7 +149,7 @@ public class EmailService {
 			keyValuePairs.put("orderNumber", extractPattern(text, orderNumberRegex));
 			keyValuePairs.put("status", extractPattern(text, statusRegex));
 			keyValuePairs.put("Due Date", extractPattern(text, dueDateRegex));
-			System.out.println("HashMap Elements: " + keyValuePairs);
+
 
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -160,7 +169,27 @@ public class EmailService {
 			return null;
 		}
 	}
+		return keyValuePairs;
+	}
 
+	// Method to extract value associated with the key in the PDF text
+    public String extractValueForKey(String text,String key) throws IOException {
+
+        // Use regular expression to search for the key and extract the value
+        // For example, key could be "Invoice No" and the value could be the number following it
+    	String pattern = "(?s)" + key + "\\s*[:]?\\s*(.*?)\\s*(?=\n|$)";
+    	
+    //	String pattern = "(?i)Sold By\\s*:?\\s*([\\s\\S]*?)(?=\\s*(?:Shipping Address|From|To|Status|Total Due|Order Number|$))";
+        Pattern r = Pattern.compile(pattern);
+        Matcher m = r.matcher(text);
+
+        if (m.find()) {
+            return m.group(1);  // Return the first group, which is the value after the key
+        } else {
+            return null;
+        }
+    }
+	
 	private String extractPattern(String text, String regex) {
 		Pattern pattern = Pattern.compile(regex);
 		Matcher matcher = pattern.matcher(text);
