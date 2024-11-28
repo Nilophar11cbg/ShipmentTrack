@@ -7,6 +7,9 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import com.shipment.track.model.ShipmentDetails;
 
+/**
+ * Repository to get shipment details
+ */
 public interface ShipmentDetailsRepository extends JpaRepository<ShipmentDetails, Long> {
 	 
 	 List<ShipmentDetails> getShipmentByStatus(String status);
