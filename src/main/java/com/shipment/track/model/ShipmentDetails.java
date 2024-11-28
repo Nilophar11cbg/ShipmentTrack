@@ -1,7 +1,5 @@
 package com.shipment.track.model;
 
-
-
 import java.sql.Date;
 
 import jakarta.persistence.Entity;
@@ -19,7 +17,7 @@ import lombok.Setter;
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
-@Table(name="Shipment_details")
+@Table(name = "Shipment_details")
 public class ShipmentDetails {
 
 	@Id
@@ -32,6 +30,6 @@ public class ShipmentDetails {
 	private String receiverName;
 	private String receiverAddress;
 	private String trackingNumber;
-	private String shipmentDate;
-	
+	private Date shipmentDate;
+
 }

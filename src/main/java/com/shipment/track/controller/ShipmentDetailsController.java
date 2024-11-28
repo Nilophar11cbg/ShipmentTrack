@@ -34,6 +34,7 @@ public class ShipmentDetailsController {
 
 	/**
 	 * This method gets all shipment details
+	 * 
 	 * @return
 	 */
 	@GetMapping("/shipments")
@@ -55,6 +56,7 @@ public class ShipmentDetailsController {
 
 	/**
 	 * This method gets the shipment details count on basis of shipment id
+	 * 
 	 * @param id
 	 * @return
 	 */
@@ -71,6 +73,7 @@ public class ShipmentDetailsController {
 
 	/**
 	 * This method gets the shipment details count on basis of status
+	 * 
 	 * @param status
 	 * @return
 	 */
@@ -83,12 +86,12 @@ public class ShipmentDetailsController {
 
 	/**
 	 * This method read emails from inbox and create entry for shipment details
+	 * 
 	 * @return
 	 */
 	@GetMapping("/shipment")
 	public ResponseEntity<String> createShipmentDetail() {
 		try {
-			// read email contents and insert data
 			emailService.fetchEmails();
 			return new ResponseEntity<>("Shipment created", HttpStatus.CREATED);
 		} catch (Exception e) {

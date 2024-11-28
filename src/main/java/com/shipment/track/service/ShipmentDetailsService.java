@@ -20,6 +20,7 @@ public class ShipmentDetailsService {
 
 	/**
 	 * This method gets all shipment details
+	 * 
 	 * @return
 	 */
 	public List<ShipmentDetails> getAllShipmentDetails() {
@@ -28,6 +29,7 @@ public class ShipmentDetailsService {
 
 	/**
 	 * This method gets shipment details as per status provided
+	 * 
 	 * @param status
 	 * @return
 	 */
@@ -37,6 +39,7 @@ public class ShipmentDetailsService {
 
 	/**
 	 * This method gets shipment details as per status shipment id
+	 * 
 	 * @param shipmentId
 	 * @return
 	 */
