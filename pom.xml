@@ -75,7 +75,13 @@
 			<groupId>com.sun.mail</groupId>
 			<artifactId>javax.mail</artifactId>
 			<version>1.6.2</version>
-		</dependency>		
+		</dependency>
+		<!-- Tesseract OCR Wrapper for Java -->
+		<dependency>
+			<groupId>net.sourceforge.tess4j</groupId>
+			<artifactId>tess4j</artifactId>
+			<version>4.5.5</version>
+		</dependency>
 	</dependencies>
 
 	<build>
