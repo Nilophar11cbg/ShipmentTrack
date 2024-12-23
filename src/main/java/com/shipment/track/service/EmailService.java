@@ -2,17 +2,15 @@ package com.shipment.track.service;
 
 import javax.mail.*;
 
-import java.io.IOException;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.text.SimpleDateFormat;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
-import org.apache.pdfbox.pdmodel.PDDocument;
-import org.apache.pdfbox.text.PDFTextStripper;
+
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -40,6 +38,9 @@ public class EmailService {
 
 	@Autowired
 	ShipmentDetailsRepository repository;
+	
+	@Autowired
+	PDFExtractionService pdfExtractionService;
 
 	public void fetchEmails() {
 		Properties props = new Properties();
@@ -80,123 +81,60 @@ public class EmailService {
 			e.printStackTrace();
 		}
 	}
-
-	private void handleAttachment(BodyPart bodyPart) {
-		try {
-			String filename = bodyPart.getFileName();
-			InputStream is = bodyPart.getInputStream();
-			if (filename.endsWith(".pdf")) {
-				extractTextFromPDF(is);
-			}
-
-			// Process the attachment based on its type (PDF, DOCX, Image)
-			if (filename.endsWith(".pdf")) {
-				extractTextFromPDF(is);
-			}
-			
-
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-	}
-
-	/**
-	 * @param is
-	 */
-	private void extractTextFromPDF(InputStream is) {
-		try {
-			System.out.println("Extraction started for PDF....");
-			Map<String, String> keyValueMap = extractKeyValuePairs(is);
-
-			ShipmentDetails details = new ShipmentDetails();
-			details.setSenderAddress(keyValueMap.get("from"));
-			details.setReceiverAddress(keyValueMap.get("to"));
-			details.setTrackingNumber(keyValueMap.get("shipmentNumber"));
-			details.setOrderId(keyValueMap.get("orderNumber"));
-			details.setStatus(keyValueMap.get("status"));
-			String dueDate = keyValueMap.get("Due Date");
-			System.out.println("Due date=> " + dueDate);
-      
-			if (dueDate != null && !dueDate.isEmpty()) {
-				SimpleDateFormat sdf = new SimpleDateFormat("dd-MM-yyyy");
-				java.util.Date parsedDate = sdf.parse(dueDate);
-
-				java.sql.Date sqlDueDate = new java.sql.Date(parsedDate.getTime());
-				details.setShipmentDate(sqlDueDate);
-			}
-			
-				repository.save(details);
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-	}
-
-	public Map<String, String> extractKeyValuePairs(InputStream is) {
-		Map<String, String> keyValuePairs = new HashMap<>();
-
-		try (PDDocument document = PDDocument.load(is)) {
-			PDFTextStripper pdfStripper = new PDFTextStripper();
-			String text = pdfStripper.getText(document);
-
-			String soldByRegex = "(?i)Sold By\\s*:?\\s*([\\s\\S]*?)(?=\\s*(?:Shipping Address|Total Due|GST Registration No|PAN No|Order Number|$))";
-			String shippingAddressRegex = "(?i)Shipping Address\\s*:?\\s*([\\s\\S]*?)(?=\\s*(?:Billing Address|Total Due|State|Order Number|$))";
-			String orderNumberRegex = "(?i)Order Number\\s*:?\\s*([A-Za-z0-9-]+)";
-			String statusRegex = "Status:?\\s*:?\\s*([A-Za-z0-9_]+)";
-			String dueDateRegex = "(?i)Due Date\\s*:?\\s*(\\d{2}-\\d{2}-\\d{4})";
-
-			keyValuePairs.put("from", extractPattern(text, soldByRegex));
-			keyValuePairs.put("to", extractPattern(text, shippingAddressRegex));
-			keyValuePairs.put("orderNumber", extractPattern(text, orderNumberRegex));
-			keyValuePairs.put("status", extractPattern(text, statusRegex));
-			keyValuePairs.put("Due Date", extractPattern(text, dueDateRegex));
-
-
-		} catch (IOException e) {
-			e.printStackTrace();
-			throw new RuntimeException("Failed to process PDF file", e);
-		}
-		return keyValuePairs;
-	}
-
-	public String extractValueForKey(String text, String key) throws IOException {
-		String pattern = "(?s)" + key + "\\s*[:]?\\s*(.*?)\\s*(?=\n|$)";
-		Pattern r = Pattern.compile(pattern);
-		Matcher m = r.matcher(text);
-
-		if (m.find()) {
-			return m.group(1);
-		} else {
-			return null;
-		}
-	}
-		return keyValuePairs;
-	}
-
-	// Method to extract value associated with the key in the PDF text
-    public String extractValueForKey(String text,String key) throws IOException {
-
-        // Use regular expression to search for the key and extract the value
-        // For example, key could be "Invoice No" and the value could be the number following it
-    	String pattern = "(?s)" + key + "\\s*[:]?\\s*(.*?)\\s*(?=\n|$)";
-    	
-    //	String pattern = "(?i)Sold By\\s*:?\\s*([\\s\\S]*?)(?=\\s*(?:Shipping Address|From|To|Status|Total Due|Order Number|$))";
-        Pattern r = Pattern.compile(pattern);
-        Matcher m = r.matcher(text);
-
-        if (m.find()) {
-            return m.group(1);  // Return the first group, which is the value after the key
-        } else {
-            return null;
-        }
-    }
 	
-	private String extractPattern(String text, String regex) {
-		Pattern pattern = Pattern.compile(regex);
-		Matcher matcher = pattern.matcher(text);
+	 private void handleAttachment(BodyPart bodyPart) {
+	        try {
+	            String filename = bodyPart.getFileName();
+	            InputStream is = bodyPart.getInputStream();
 
-		if (matcher.find()) {
-			return matcher.group(1).trim().replaceAll("\\r\\n|\\n", " ");
-		}
-		return null;
-	}
+	            if (filename.endsWith(".pdf")) {
+	                File tempFile = File.createTempFile("attachment", ".pdf");
+	                try (FileOutputStream fos = new FileOutputStream(tempFile)) {
+	                    byte[] buffer = new byte[1024];
+	                    int bytesRead;
+	                    while ((bytesRead = is.read(buffer)) != -1) {
+	                        fos.write(buffer, 0, bytesRead);
+	                    }
+	                }
+	                extractDataFromPDF(tempFile);
+
+	                tempFile.delete();
+	            }
+
+	        } catch (Exception e) {
+	            e.printStackTrace();
+	        }
+	    }
+
+	    private void extractDataFromPDF(File pdfFile) {
+	        try {
+	            System.out.println("Extraction started for PDF....");
+	            Map<String, String> extractedData = pdfExtractionService.extractDataFromPDF(pdfFile);
+
+	            ShipmentDetails details = new ShipmentDetails();
+                 details.setSenderAddress(extractedData.get("SOLDBY"));
+	            details.setReceiverAddress(extractedData.get("SHIPPINGADDRESS"));
+	            details.setTrackingNumber(extractedData.get("INVOICEDETAILS"));
+	            details.setOrderId(extractedData.get("ORDERNUMBER"));
+	            details.setStatus(extractedData.get("STATUS"));
+
+	            String dueDate = extractedData.get("DUEDATE");
+	            if (dueDate != null && !dueDate.isEmpty()) {
+	                dueDate = dueDate.replaceAll("[^\\d-]", "").trim(); 
+	                SimpleDateFormat sdf = new SimpleDateFormat("dd-MM-yyyy");
+	                try {
+	                    java.util.Date parsedDate = sdf.parse(dueDate);
+	                    java.sql.Date sqlDueDate = new java.sql.Date(parsedDate.getTime());
+	                    details.setShipmentDate(sqlDueDate);
+	                } catch (java.text.ParseException e) {
+	                    System.err.println("Failed to parse due date: " + dueDate);
+	                    e.printStackTrace();
+	                }
+	            }
+
+	            repository.save(details);
+	        } catch (Exception e) {
+	            e.printStackTrace();
+	        }
+	    }
 }

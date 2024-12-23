@@ -17,11 +17,7 @@ import lombok.Setter;
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
-
 @Table(name = "Shipment_details")
-=======
-@Table(name="Shipment_details")
-
 public class ShipmentDetails {
 
 	@Id
@@ -35,5 +31,5 @@ public class ShipmentDetails {
 	private String receiverAddress;
 	private String trackingNumber;
 	private Date shipmentDate;
-	private  Date shipmentDate;
+
 }
