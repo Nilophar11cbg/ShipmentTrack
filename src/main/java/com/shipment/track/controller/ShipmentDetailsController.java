@@ -18,6 +18,9 @@ import com.shipment.track.model.ShipmentDetails;
 import com.shipment.track.service.EmailService;
 import com.shipment.track.service.ShipmentDetailsService;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /**
  * 
  */
@@ -26,6 +29,8 @@ import com.shipment.track.service.ShipmentDetailsService;
 @CrossOrigin(origins = "http://localhost:4200")
 public class ShipmentDetailsController {
 
+	private static final Logger logger = LoggerFactory.getLogger(ShipmentDetailsController.class);
+	
 	@Autowired
 	ShipmentDetailsService shipmentDetailsService;
 
@@ -91,10 +96,13 @@ public class ShipmentDetailsController {
 	 */
 	@GetMapping("/shipment")
 	public ResponseEntity<String> createShipmentDetail() {
+		logger.info("Call to shipment creation invoked");
 		try {
 			emailService.fetchEmails();
+			logger.info("Call to shipment creation completed");
 			return new ResponseEntity<>("Shipment created", HttpStatus.CREATED);
 		} catch (Exception e) {
+			logger.error("problem occured in shipment creation");
 			return new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
 		}
 	}
