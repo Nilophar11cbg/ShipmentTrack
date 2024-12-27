@@ -1,6 +1,7 @@
 package com.shipment.track.service;
 
 import javax.mail.*;
+import javax.mail.search.FlagTerm;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -9,14 +10,17 @@ import java.text.SimpleDateFormat;
 import java.util.Map;
 import java.util.Properties;
 
-
-
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import com.shipment.track.controller.ShipmentDetailsController;
 import com.shipment.track.model.ShipmentDetails;
 import com.shipment.track.repository.ShipmentDetailsRepository;
+
+import io.micrometer.common.util.StringUtils;
 
 @Service
 public class EmailService {
@@ -41,8 +45,11 @@ public class EmailService {
 	
 	@Autowired
 	PDFExtractionService pdfExtractionService;
+	
+	private static final Logger logger = LoggerFactory.getLogger(EmailService.class);
 
 	public void fetchEmails() {
+		logger.info("Reading of emails started ");
 		Properties props = new Properties();
 		props.put("mail.store.protocol", protocol);
 		props.put("mail.imap.host", host);
@@ -56,9 +63,9 @@ public class EmailService {
 			store.connect(username, password);
 			Folder inbox = store.getFolder("INBOX");
 			inbox.open(Folder.READ_ONLY);
-
-			Message[] messages = inbox.getMessages();
-			System.out.println("Messages available in Inbox " + messages.length);
+			
+			// Fetch unread emails
+			Message[] messages = inbox.search(new FlagTerm(new Flags(Flags.Flag.SEEN), false));
 
 
 			for (Message message : messages) {
@@ -88,6 +95,7 @@ public class EmailService {
 	            InputStream is = bodyPart.getInputStream();
 
 	            if (filename.endsWith(".pdf")) {
+	            	logger.info("Email contains attachment as PDF " + filename);
 	                File tempFile = File.createTempFile("attachment", ".pdf");
 	                try (FileOutputStream fos = new FileOutputStream(tempFile)) {
 	                    byte[] buffer = new byte[1024];
@@ -106,17 +114,23 @@ public class EmailService {
 	        }
 	    }
 
+	 /**
+	  * Extracts contents from PDF
+	  * @param pdfFile
+	  */
 	    private void extractDataFromPDF(File pdfFile) {
 	        try {
-	            System.out.println("Extraction started for PDF....");
+	        	logger.info("Extraction started for PDF....");
 	            Map<String, String> extractedData = pdfExtractionService.extractDataFromPDF(pdfFile);
 
 	            ShipmentDetails details = new ShipmentDetails();
                  details.setSenderAddress(extractedData.get("SOLDBY"));
 	            details.setReceiverAddress(extractedData.get("SHIPPINGADDRESS"));
-	            details.setTrackingNumber(extractedData.get("INVOICEDETAILS"));
+	         //   details.setTrackingNumber(extractedData.get("INVOICEDETAILS"));
 	            details.setOrderId(extractedData.get("ORDERNUMBER"));
-	            details.setStatus(extractedData.get("STATUS"));
+	            String status = extractedData.get("STATUS");
+	            if(StringUtils.isNotEmpty(status))
+	            	details.setStatus(status.toUpperCase());
 
 	            String dueDate = extractedData.get("DUEDATE");
 	            if (dueDate != null && !dueDate.isEmpty()) {
@@ -127,14 +141,16 @@ public class EmailService {
 	                    java.sql.Date sqlDueDate = new java.sql.Date(parsedDate.getTime());
 	                    details.setShipmentDate(sqlDueDate);
 	                } catch (java.text.ParseException e) {
-	                    System.err.println("Failed to parse due date: " + dueDate);
-	                    e.printStackTrace();
+	                	logger.error("Failed to parse due date " + dueDate +"with error " + e.getMessage());
 	                }
 	            }
-
+	            logger.info("Extraction completed for PDF....");
+	            
 	            repository.save(details);
+	            
+	            logger.info("PDF contents saved to database");
 	        } catch (Exception e) {
-	            e.printStackTrace();
+	        	logger.error("Exception occured in extracting data from PDF " + e.getMessage());
 	        }
 	    }
 }
